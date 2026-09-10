@@ -54,10 +54,10 @@ button{background:#17202a;color:#fff;font-weight:700;min-height:48px}
 </section>
 </main>
 <script>
-const API='https://abnydnnafyosrakkgajy.supabase.co/functions/v1/v6-test1-api';
+const API_BASE='https://abnydnnafyosrakkgajy.supabase.co/functions/v1/v6-test1-api';
 let employee=null, findingId=null;
 async function api(action, body){
-  const r=await fetch(API+'?a='+encodeURIComponent(action),{
+  const r=await fetch(API_BASE+'?a='+encodeURIComponent(action),{
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify(body)
