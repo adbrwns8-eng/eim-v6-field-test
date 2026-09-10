@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>EIM v6 Test 1</title>
+<style>
+body{font-family:Arial,Helvetica,sans-serif;margin:0;background:#f4f6f8;color:#17202a}
+main{max-width:540px;margin:auto;padding:20px}
+.card{background:#fff;border:1px solid #d0d5dd;border-radius:14px;padding:20px;margin:14px 0}
+h1{font-size:24px;margin:0 0 6px}.test{font-weight:700;color:#9b1c1c;margin-bottom:14px}
+input,select,textarea,button{box-sizing:border-box;width:100%;font:inherit;font-size:17px;padding:14px;margin:8px 0;border:1px solid #b8c0cc;border-radius:10px}
+button{background:#17202a;color:#fff;font-weight:700;min-height:48px}
+.hidden{display:none}.green{background:#e7f7eb}.yellow{background:#fff4cc}.red{background:#ffe0e0}
+.small{font-size:13px;color:#5d6673}.status{font-weight:800;font-size:22px}
+</style>
+</head>
+<body>
+<main>
+<h1>ENERGY IN MOTION</h1>
+<div class="test">EIM FIELD TEST — v6<br>TEST ENVIRONMENT — NOT PRODUCTION</div>
+
+<section id="loginCard" class="card">
+<h2>Employee Access</h2>
+<input id="pin" inputmode="numeric" pattern="[0-9]*" placeholder="Employee PIN">
+<button id="loginBtn">CONTINUE</button>
+<p id="loginMsg" class="small"></p>
+</section>
+
+<section id="formCard" class="card hidden">
+<h2 id="hello">Employee</h2>
+<label>Equipment</label>
+<select id="equipment"></select>
+<label>Test deficiency description</label>
+<textarea id="description" rows="8">During the inspection I noticed the access step handrail is loose and moves when pressure is applied. The mounting point appears worn. I am concerned someone could lose their balance while climbing onto the equipment.</textarea>
+<label>Test photo</label>
+<input id="photo" type="file" accept="image/*" capture="environment">
+<p class="small">For Test #1, any harmless test photo is acceptable. Full photo-file upload will be validated immediately after this workflow test.</p>
+<button id="submitBtn">SUBMIT TEST DEFICIENCY</button>
+<p id="submitMsg" class="small"></p>
+</section>
+
+<section id="resultCard" class="card hidden">
+<div id="status" class="status"></div>
+<p id="instruction"></p>
+<p id="finding" class="small"></p>
+<button id="ackBtn">I UNDERSTAND</button>
+</section>
+
+<section id="doneCard" class="card green hidden">
+<h2>✓ Test Report Submitted</h2>
+<p>Your instruction acknowledgement has been recorded.</p>
+<p class="small">Follow normal EIM procedures during this pilot. This test app is not the production system of record.</p>
+</section>
+</main>
+<script>
+const API='https://abnydnnafyosrakkgajy.supabase.co/functions/v1/v6-test1-api';
+let employee=null, findingId=null;
+async function api(action, body){
+  const r=await fetch(API+'?a='+encodeURIComponent(action),{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(body)
+  });
+  const text=await r.text();
+  let data={};
+  try{data=text?JSON.parse(text):{}}catch{}
+  if(!r.ok) throw new Error(data.error||('HTTP '+r.status));
+  return data;
+}
+async function loadEquipment(){
+  const r=await fetch(API+'?a=equipment');
+  const text=await r.text();
+  let data=[];
+  try{data=text?JSON.parse(text):[]}catch{}
+  if(!r.ok) throw new Error((data&&data.error)||'Equipment load failed');
+  equipment.innerHTML=data.map(x=>'<option value="'+x.id+'">'+x.equipment_id+' — '+x.description+'</option>').join('');
+}
+loginBtn.onclick=async()=>{
+  loginBtn.disabled=true; loginMsg.textContent='Checking PIN...';
+  try{
+    const d=await api('login',{pin:pin.value.trim()});
+    if(!d.ok){loginMsg.textContent='PIN not recognized in the test environment.';return}
+    employee=d; await loadEquipment();
+    hello.textContent='Hello, '+d.name;
+    loginCard.classList.add('hidden'); formCard.classList.remove('hidden');
+  }catch(e){loginMsg.textContent='Connection error: '+e.message}
+  finally{loginBtn.disabled=false}
+};
+submitBtn.onclick=async()=>{
+  if(!photo.files.length){submitMsg.textContent='Select a harmless test photo before submitting.';return}
+  submitBtn.disabled=true; submitMsg.textContent='Submitting test finding...';
+  try{
+    const d=await api('submit',{
+      employee_id:employee.employee_id,
+      equipment_id:equipment.value,
+      description:description.value,
+      photo_note:photo.files[0].name
+    });
+    if(!d.ok) throw new Error('Submission failed');
+    findingId=d.finding_id;
+    formCard.classList.add('hidden');
+    resultCard.classList.remove('hidden');
+    resultCard.classList.add(d.instruction_level);
+    status.textContent=d.instruction_level.toUpperCase()+' — '+d.severity.toUpperCase();
+    instruction.textContent=d.instruction;
+    finding.textContent='Finding ID: '+d.finding_id;
+  }catch(e){submitMsg.textContent='Submission failed: '+e.message}
+  finally{submitBtn.disabled=false}
+};
+ackBtn.onclick=async()=>{
+  ackBtn.disabled=true;
+  try{
+    await api('ack',{finding_id:findingId});
+    resultCard.classList.add('hidden'); doneCard.classList.remove('hidden');
+  }catch(e){
+    ackBtn.disabled=false; alert('Acknowledgement failed: '+e.message)
+  }
+};
+</script>
+</body>
+</html>
