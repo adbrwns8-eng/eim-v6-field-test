@@ -69,7 +69,7 @@ async function api(action, body){
   return data;
 }
 async function loadEquipment(){
-  const r=await fetch(API+'?a=equipment');
+  const r=await fetch(API_BASE+'?a=equipment');
   const text=await r.text();
   let data=[];
   try{data=text?JSON.parse(text):[]}catch{}
