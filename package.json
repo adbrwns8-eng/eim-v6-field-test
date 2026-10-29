@@ -1,0 +1,20 @@
+{
+  "name": "eim-b23-onboarding-pilot",
+  "version": "1.0.0",
+  "description": "Additive BOS EIM onboarding test and permission checks",
+  "scripts": {
+    "test": "node --check onboarding-pilot.js && node tests/database.test.mjs && node tests/ui.test.mjs",
+    "test:browser": "node tests/browser.test.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/adbrwns8-eng/eim-v6-field-test.git"
+  },
+  "type": "commonjs",
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.13",
+    "jsdom": "30.1.3",
+    "playwright": "1.58.2"
+  },
+  "private": true
+}
