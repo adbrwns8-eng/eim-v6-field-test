@@ -1,30 +1,139 @@
 name: Deploy GitHub Pages
+run-name: 'Pages approval for ${{ inputs.approved_sha }}'
 on:
-  push:
-    branches: [ main ]
   workflow_dispatch:
-permissions:
-  contents: read
-  pages: write
-  id-token: write
+    inputs:
+      approved_sha:
+        description: 'Full lowercase 40-character reviewed main commit SHA; not a branch or tag'
+        required: true
+        type: string
+permissions: {}
 concurrency:
-  group: "pages"
-  cancel-in-progress: true
+  group: pages
+  cancel-in-progress: false
 jobs:
+  prepare:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      artifact_id: ${{ steps.upload.outputs.artifact-id }}
+      artifact_digest: ${{ steps.upload.outputs.artifact-digest }}
+      manifest_digest: ${{ steps.stage.outputs.manifest_digest }}
+    env:
+      APPROVED_SHA: ${{ inputs.approved_sha }}
+      WORKFLOW_SHA: ${{ github.sha }}
+      WORKFLOW_REF: ${{ github.workflow_ref }}
+      TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+      RUN_ATTEMPT: ${{ github.run_attempt }}
+    steps:
+      - name: Checkout trusted release controls
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          path: control
+          persist-credentials: false
+      - name: Validate dispatch, approved commit and live protections
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const {inspectRelease} = require(process.env.GITHUB_WORKSPACE + '/control/scripts/release-policy.cjs');
+            await inspectRelease({github, context, approvedSha: process.env.APPROVED_SHA, triggeringActor: process.env.TRIGGERING_ACTOR});
+      - name: Setup Node for synthetic control tests
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24'
+      - name: Test release controls without deployment or service access
+        working-directory: control
+        run: |
+          npm ci --ignore-scripts
+          npm run test:deployment-gate
+      - name: Checkout exact approved frontend commit
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.approved_sha }}
+          path: site-source
+          persist-credentials: false
+      - name: Stage and verify explicit committed frontend blobs
+        id: stage
+        shell: bash
+        run: |
+          set -euo pipefail
+          digest="$(python3 control/scripts/pages-artifact.py stage --source site-source --sha "$APPROVED_SHA" --artifact "$RUNNER_TEMP/artifact.tar")"
+          python3 control/scripts/pages-artifact.py verify --sha "$APPROVED_SHA" --digest "$digest" --artifact "$RUNNER_TEMP/artifact.tar"
+          echo "manifest_digest=$digest" >> "$GITHUB_OUTPUT"
+      - name: Upload immutable run-specific artifact
+        id: upload
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: pages-${{ github.run_id }}-${{ github.run_attempt }}-${{ inputs.approved_sha }}
+          path: ${{ runner.temp }}/artifact.tar
+          if-no-files-found: error
+          retention-days: 1
+      - name: Present immutable release identity for the human reviewer
+        env:
+          ARTIFACT_ID: ${{ steps.upload.outputs.artifact-id }}
+          ARTIFACT_DIGEST: ${{ steps.upload.outputs.artifact-digest }}
+          MANIFEST_DIGEST: ${{ steps.stage.outputs.manifest_digest }}
+        run: |
+          printf 'Approved frontend SHA: `%s`\n\nControl workflow SHA: `%s`\n\nArtifact ID: `%s`\n\nArtifact digest: `%s`\n\nManifest digest: `%s`\n' "$APPROVED_SHA" "$WORKFLOW_SHA" "$ARTIFACT_ID" "$ARTIFACT_DIGEST" "$MANIFEST_DIGEST" >> "$GITHUB_STEP_SUMMARY"
   deploy:
+    needs: prepare
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && needs.prepare.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      pages: write
+      id-token: write
+    env:
+      APPROVED_SHA: ${{ inputs.approved_sha }}
+      WORKFLOW_SHA: ${{ github.sha }}
+      WORKFLOW_REF: ${{ github.workflow_ref }}
+      TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+      RUN_ATTEMPT: ${{ github.run_attempt }}
+      ARTIFACT_ID: ${{ needs.prepare.outputs.artifact_id }}
+      ARTIFACT_DIGEST: ${{ needs.prepare.outputs.artifact_digest }}
+      MANIFEST_DIGEST: ${{ needs.prepare.outputs.manifest_digest }}
+      ARTIFACT_NAME: pages-${{ github.run_id }}-${{ github.run_attempt }}-${{ inputs.approved_sha }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: Checkout trusted controls only; never execute approved frontend code here
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          path: .
-      - name: Deploy to GitHub Pages
+          ref: ${{ github.sha }}
+          path: control
+          persist-credentials: false
+      - name: Revalidate all gates after human approval and bind artifact identity
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const {inspectRelease, validateArtifact} = require(process.env.GITHUB_WORKSPACE + '/control/scripts/release-policy.cjs');
+            await inspectRelease({github, context, approvedSha: process.env.APPROVED_SHA, triggeringActor: process.env.TRIGGERING_ACTOR});
+            const artifacts = await github.paginate('GET /repos/{owner}/{repo}/actions/runs/{run_id}/artifacts', {...context.repo, run_id: context.runId, per_page: 100});
+            const matches = artifacts.filter(artifact => artifact.name === process.env.ARTIFACT_NAME);
+            if (matches.length !== 1) throw new Error('Release blocked: artifact must be unique within this run');
+            validateArtifact(matches[0], {id: process.env.ARTIFACT_ID, digest: process.env.ARTIFACT_DIGEST, name: process.env.ARTIFACT_NAME, runId: context.runId, workflowSha: process.env.WORKFLOW_SHA});
+      - name: Download only the verified artifact ID from this run
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          artifact-ids: ${{ needs.prepare.outputs.artifact_id }}
+          path: ${{ runner.temp }}/verified-pages
+      - name: Verify packaged revision, manifest and every frontend file without extraction
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 control/scripts/pages-artifact.py verify --sha "$APPROVED_SHA" --digest "$MANIFEST_DIGEST" --artifact "$RUNNER_TEMP/verified-pages/artifact.tar"
+      - name: Deploy only the verified run-specific artifact
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const {deployVerifiedArtifact} = require(process.env.GITHUB_WORKSPACE + '/control/scripts/release-policy.cjs');
+            await deployVerifiedArtifact({github, context, core, approvedSha: process.env.APPROVED_SHA, triggeringActor: process.env.TRIGGERING_ACTOR, expected: {id: process.env.ARTIFACT_ID, digest: process.env.ARTIFACT_DIGEST, name: process.env.ARTIFACT_NAME}});
