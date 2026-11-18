@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "tasks": [
+    {
+      "id": "BRAIN-001-PILOT",
+      "title": "Validate queue processing and audit report",
+      "approved": true,
+      "type": "dry_run",
+      "max_usd": 0,
+      "priority": 1
+    },
+    {
+      "id": "BOS-006",
+      "title": "Inspection and onboarding reliability audit",
+      "approved": false,
+      "type": "engineering",
+      "max_usd": 0,
+      "priority": 2
+    }
+  ]
+}
