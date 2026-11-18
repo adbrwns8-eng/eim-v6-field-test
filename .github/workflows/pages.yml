@@ -1,24 +1,62 @@
 name: Deploy GitHub Pages
 on:
-  push:
-    branches: [ main ]
   workflow_dispatch:
-permissions:
-  contents: read
-  pages: write
-  id-token: write
+    inputs:
+      release_sha:
+        description: Full 40-character commit SHA approved for release
+        required: true
+        type: string
+permissions: {}
 concurrency:
   group: "pages"
-  cancel-in-progress: true
+  cancel-in-progress: false
 jobs:
+  validate-release:
+    name: Validate approved main commit
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      release_sha: ${{ steps.validate.outputs.release_sha }}
+    steps:
+      - name: Checkout release workflow from main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate release SHA
+        id: validate
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "release_sha must be a lowercase, full 40-character commit SHA" >&2
+            exit 1
+          fi
+          git fetch --no-tags origin main
+          git cat-file -e "${RELEASE_SHA}^{commit}"
+          git merge-base --is-ancestor "$RELEASE_SHA" origin/main
+          echo "release_sha=$RELEASE_SHA" >> "$GITHUB_OUTPUT"
   deploy:
+    name: Deploy approved commit
+    needs: validate-release
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     steps:
-      - name: Checkout
+      - name: Checkout approved commit
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate-release.outputs.release_sha }}
+          persist-credentials: false
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact
