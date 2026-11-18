@@ -1,30 +1,89 @@
 name: Deploy GitHub Pages
 on:
-  push:
-    branches: [ main ]
   workflow_dispatch:
-permissions:
-  contents: read
-  pages: write
-  id-token: write
+    inputs:
+      release_sha:
+        description: Full 40-character commit SHA approved for release
+        required: true
+        type: string
+permissions: {}
 concurrency:
   group: "pages"
-  cancel-in-progress: true
+  cancel-in-progress: false
 jobs:
+  validate-release:
+    name: Validate approved main commit
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      release_sha: ${{ steps.validate.outputs.release_sha }}
+    steps:
+      - name: Checkout release workflow from main
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate release SHA
+        id: validate
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "release_sha must be a lowercase, full 40-character commit SHA" >&2
+            exit 1
+          fi
+          git fetch --no-tags origin main
+          git cat-file -e "${RELEASE_SHA}^{commit}"
+          git merge-base --is-ancestor "$RELEASE_SHA" origin/main
+          echo "release_sha=$RELEASE_SHA" >> "$GITHUB_OUTPUT"
+  build:
+    name: Build exact release artifact
+    needs: validate-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout approved commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ needs.validate-release.outputs.release_sha }}
+          persist-credentials: false
+      - name: Stage static site and provenance
+        env:
+          RELEASE_SHA: ${{ needs.validate-release.outputs.release_sha }}
+          RUN_ID: ${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir dist
+          find . -maxdepth 1 -type f \
+            \( -name '*.html' -o -name '*.js' -o -name '*.css' \) \
+            -exec cp '{}' dist/ \;
+          test -s dist/index.html
+          printf '{"release_sha":"%s","run_id":"%s"}\n' \
+            "$RELEASE_SHA" "$RUN_ID" > dist/release-provenance.json
+      - name: Upload exact release artifact
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
+        with:
+          path: dist
   deploy:
+    name: Deploy approved commit
+    needs: [validate-release, build]
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
       - name: Setup Pages
-        uses: actions/configure-pages@v5
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: .
+        uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4

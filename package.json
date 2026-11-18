@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Additive BOS EIM onboarding test and permission checks",
   "scripts": {
-    "test": "node --check onboarding-pilot.js && node tests/database.test.mjs && node tests/ui.test.mjs",
+    "test": "node --check onboarding-pilot.js && node tests/deployment-workflow.test.mjs && node tests/database.test.mjs && node tests/ui.test.mjs",
     "test:browser": "node tests/browser.test.mjs"
   },
   "repository": {
