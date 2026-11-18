@@ -1,0 +1,212 @@
+{
+  "candidate_sha": "660d9c3b06aa0bbdb1295519747a88ac140f47e7",
+  "openapi_source": "https://github.com/github/rest-api-description/blob/c9c95fe34ced05fe076001f5c55704742bc8e7f8/descriptions/api.github.com/api.github.com.json",
+  "permissions_source": "https://github.com/github/docs/blob/1f9d8455c5531588d858d6e4e1bf194155b5aff1/src/github-apps/data/fpt-2022-11-28/server-to-server-permissions.json",
+  "create_pages_deployment": {
+    "artifact_id": {
+      "type": "number",
+      "description": "The ID of an artifact that contains the .zip or .tar of static assets to deploy. The artifact belongs to the repository. Either `artifact_id` or `artifact_url` are required."
+    },
+    "pages_build_version": {
+      "type": "string",
+      "description": "A unique string that represents the version of the build for this deployment.",
+      "default": "GITHUB_SHA"
+    },
+    "required": [
+      "pages_build_version",
+      "oidc_token"
+    ]
+  },
+  "endpoint_permissions": [
+    {
+      "method": "GET",
+      "path": "/repos/{owner}/{repo}/git/ref/{ref}",
+      "documented_permissions": [
+        {
+          "permission": "contents",
+          "access": "read",
+          "additional_permissions": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/repos/{owner}/{repo}/commits/{ref}",
+      "documented_permissions": [
+        {
+          "permission": "contents",
+          "access": "read",
+          "additional_permissions": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/repos/{owner}/{repo}/compare/{basehead}",
+      "documented_permissions": [
+        {
+          "permission": "contents",
+          "access": "read",
+          "additional_permissions": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/repos/{owner}/{repo}/environments/{environment_name}",
+      "documented_permissions": [
+        {
+          "permission": "actions",
+          "access": "read",
+          "additional_permissions": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/repos/{owner}/{repo}/environments/{environment_name}/deployment-branch-policies",
+      "documented_permissions": [
+        {
+          "permission": "actions",
+          "access": "read",
+          "additional_permissions": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/repos/{owner}/{repo}/rules/branches/{branch}",
+      "documented_permissions": [
+        {
+          "permission": "metadata",
+          "access": "read",
+          "additional_permissions": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/repos/{owner}/{repo}/rulesets/{ruleset_id}",
+      "documented_permissions": [
+        {
+          "permission": "metadata",
+          "access": "read",
+          "additional_permissions": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/repos/{owner}/{repo}/pages",
+      "documented_permissions": [
+        {
+          "permission": "pages",
+          "access": "read",
+          "additional_permissions": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/repos/{owner}/{repo}/actions/workflows",
+      "documented_permissions": [
+        {
+          "permission": "actions",
+          "access": "read",
+          "additional_permissions": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/repos/{owner}/{repo}/actions/runs/{run_id}/artifacts",
+      "documented_permissions": [
+        {
+          "permission": "actions",
+          "access": "read",
+          "additional_permissions": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/repos/{owner}/{repo}/actions/artifacts/{artifact_id}",
+      "documented_permissions": [
+        {
+          "permission": "actions",
+          "access": "read",
+          "additional_permissions": false
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/repos/{owner}/{repo}/pages/deployments",
+      "documented_permissions": [
+        {
+          "permission": "pages",
+          "access": "write",
+          "additional_permissions": false
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/repos/{owner}/{repo}/pages/deployments/{pages_deployment_id}",
+      "documented_permissions": [
+        {
+          "permission": "pages",
+          "access": "read",
+          "additional_permissions": false
+        }
+      ]
+    }
+  ],
+  "ruleset_bypass_visibility": "Get a ruleset for a repository.\n\n**Note:** To prevent leaking sensitive information, the `bypass_actors` property is only returned if the user\nmaking the API request has write access to the ruleset.",
+  "observations": {
+    "date": "2026-11-18",
+    "credential_context": "existing cloud GitHub authentication; NOT job-scoped GITHUB_TOKEN",
+    "environment": {
+      "source": "https://api.github.com/repos/adbrwns8-eng/eim-v6-field-test/environments/github-pages",
+      "can_admins_bypass": false,
+      "prevent_self_review": false,
+      "required_reviewer": "adbrwns8-eng",
+      "branches": [
+        {
+          "name": "main",
+          "type": "branch"
+        }
+      ]
+    },
+    "rules": {
+      "source": "https://api.github.com/repos/adbrwns8-eng/eim-v6-field-test/rules/branches/main",
+      "ruleset_id": 27423765,
+      "active": true,
+      "bypass_actors_observed_with_cloud_auth": [],
+      "require_last_push_approval": false,
+      "require_code_owner_review": false,
+      "strict_required_checks": true,
+      "required_checks": [
+        {
+          "context": "Synthetic npm and browser tests",
+          "integration_id": 15368
+        }
+      ]
+    },
+    "pages": {
+      "source": "https://api.github.com/repos/adbrwns8-eng/eim-v6-field-test/pages",
+      "build_type": "workflow",
+      "source_branch_metadata": "main"
+    },
+    "workflow_registry": {
+      "source": "https://api.github.com/repos/adbrwns8-eng/eim-v6-field-test/actions/workflows",
+      "active_paths": [
+        ".github/workflows/deployment-gate-tests.yml",
+        ".github/workflows/pages.yml",
+        ".github/workflows/pr-ci.yml",
+        "dynamic/pages/pages-build-deployment"
+      ]
+    },
+    "actual_release_job_endpoint_statuses": "NOT EXECUTED"
+  }
+}
