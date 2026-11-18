@@ -10,6 +10,11 @@ Status: implementation candidate. This branch does not authorize merge or deploy
 - Rejects malformed SHAs, unknown commits, and commits not reachable from `main`.
 - Checks out exactly the validated SHA with persisted Git credentials disabled.
 - Gives Pages and OIDC write permissions only to the deployment job.
+- Builds and uploads the static artifact in an unprivileged job from the exact
+  validated SHA; the privileged deployment job does not check out or build code.
+- Embeds `release-provenance.json` with the exact SHA and workflow run ID.
+- Pins all third-party actions to the reviewed commits behind their current major
+  version tags.
 - Preserves one deployment at a time and does not cancel an in-progress release.
 
 The `github-pages` environment must still require Daniel's approval. Repository and
@@ -41,8 +46,8 @@ rollback does not roll back Supabase schemas, functions, or data.
 
 ## Remaining hardening
 
-- Replace action version tags with reviewed immutable commit SHAs after resolving
-  and recording the official tag SHAs.
+- Reconfirm pinned action SHAs during dependency updates; never return to mutable
+  tags in the privileged release workflow.
 - Verify branch protection, required checks, environment reviewers, self-review,
   administrator bypass, and all alternate publishing paths in GitHub settings.
 - Keep the coding agent unable to approve or execute production deployments.
