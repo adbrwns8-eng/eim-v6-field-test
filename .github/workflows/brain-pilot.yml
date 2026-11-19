@@ -1,0 +1,29 @@
+name: Daniel's Brain — dry-run queue pilot
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 4 * * *' # 10 PM CST / 11 PM CDT (UTC); GitHub schedule may be delayed
+permissions:
+  contents: read
+concurrency:
+  group: brain-pilot
+  cancel-in-progress: false
+jobs:
+  dry-run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Unit tests
+        run: python3 -m unittest discover -s brain/tests -v
+      - name: Process approved queue (no API calls)
+        run: python3 brain/runner.py --queue brain/tasks.json --report brain-report.json
+      - name: Upload non-sensitive report
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: brain-dry-run-report
+          path: brain-report.json
+          retention-days: 7
+          if-no-files-found: error
