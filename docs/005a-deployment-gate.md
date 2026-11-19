@@ -80,7 +80,9 @@ authentication without displaying or storing credential values.
    no ruleset bypass, Actions-only Pages and a closed active-workflow inventory.
    Unknown/inaccessible settings fail closed. No API error produces an allow result.
 7. **Least privilege.** Workflow default permissions are `{}`. Preparation receives
-   only `contents: read` and `actions: read`. Only the protected deploy job adds
+   only `contents: read`, `actions: read`, and `pages: read`. The Pages read
+   permission supports the `/pages` configuration check; `pages: write` in the deploy
+   job includes read access. Only the protected deploy job adds
    `pages: write` and `id-token: write`; its read permissions support trusted-control
    checkout and verification. No PR job receives deployment permissions, environment
    access or production secrets. Checkout never persists credentials. No settings
