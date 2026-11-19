@@ -19,6 +19,7 @@ jobs:
     permissions:
       contents: read
       actions: read
+      pages: read
     outputs:
       artifact_id: ${{ steps.upload.outputs.artifact-id }}
       artifact_digest: ${{ steps.upload.outputs.artifact-digest }}
