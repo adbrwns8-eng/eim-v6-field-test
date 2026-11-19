@@ -1,0 +1,8 @@
+# Owner-operated reviewer separation is also required; this file grants no approval.
+/.github/ @adbrwns8-eng
+/scripts/ @adbrwns8-eng
+/tests/deployment-gate.test.mjs @adbrwns8-eng
+/tests/pages-artifact.test.py @adbrwns8-eng
+/package.json @adbrwns8-eng
+/package-lock.json @adbrwns8-eng
+/docs/005a-deployment-gate.md @adbrwns8-eng
