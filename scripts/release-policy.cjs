@@ -58,9 +58,13 @@ function validateSettings({environment, branches, pages, rules, rulesets, workfl
   requireSafe([...WORKFLOWS].every(path => workflows.some(workflow => workflow.path === path && workflow.state === 'active')), 'required workflow inventory incomplete');
 }
 function validateArtifact(artifact, expected) {
-  requireSafe(/^[1-9][0-9]*$/.test(String(expected.id)) && expected.digest?.length === 64 && /^[0-9a-f]{64}$/.test(expected.digest), 'artifact outputs missing or invalid');
-  requireSafe(artifact && String(artifact.id) === String(expected.id) && artifact.name === expected.name &&
-    artifact.expired === false && artifact.digest === `sha256:${expected.digest}` &&
+  const expectedId = Number(expected.id);
+  requireSafe(/^[1-9][0-9]*$/.test(String(expected.id)) && Number.isSafeInteger(expectedId) &&
+    String(expectedId) === String(expected.id) && expected.digest?.length === 64 &&
+    /^[0-9a-f]{64}$/.test(expected.digest), 'artifact outputs missing or invalid');
+  requireSafe(artifact && Number.isSafeInteger(artifact.id) && artifact.id === expectedId &&
+    artifact.name === expected.name && artifact.expired === false &&
+    artifact.digest === `sha256:${expected.digest}` &&
     String(artifact.workflow_run?.id) === String(expected.runId) &&
     artifact.workflow_run?.head_sha === expected.workflowSha, 'artifact identity, digest or workflow revision mismatch');
 }
@@ -102,7 +106,7 @@ async function deployVerifiedArtifact({github, context, core, approvedSha, trigg
   requireSafe(typeof idToken === 'string' && idToken.length > 0, 'OIDC unavailable');
   core.setSecret(idToken);
   const deployment = (await safeApi(() => github.request('POST /repos/{owner}/{repo}/pages/deployments', {
-    ...context.repo, artifact_id: expected.id, pages_build_version: approvedSha, oidc_token: idToken,
+    ...context.repo, artifact_id: Number(expected.id), pages_build_version: approvedSha, oidc_token: idToken,
   }))).data;
   requireSafe((Number.isSafeInteger(deployment.id) && deployment.id > 0) ||
     (typeof deployment.id === 'string' && /^[a-zA-Z0-9_-]{1,200}$/.test(deployment.id)), 'deployment ID missing; outcome requires human inspection');
