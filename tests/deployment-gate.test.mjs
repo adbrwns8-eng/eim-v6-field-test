@@ -87,7 +87,13 @@ test('initiator and rerun actor cannot be the designated reviewer', () => {
 
 const expectedArtifact = () => ({id: '42', name: 'pages-7-1-' + A, digest: D, runId: 7, workflowSha: B});
 const artifact = () => ({id: 42, name: 'pages-7-1-' + A, digest: 'sha256:' + D, expired: false, workflow_run: {id: 7, head_sha: B}});
-test('accept exact artifact metadata from this run and workflow SHA', () => policy.validateArtifact(artifact(), expectedArtifact()));
+test('accept exact numeric artifact metadata from this run and workflow SHA', () => policy.validateArtifact(artifact(), expectedArtifact()));
+test('reject a string artifact ID in GitHub API metadata', () =>
+  assert.throws(() => policy.validateArtifact({...artifact(), id: '42'}, expectedArtifact()), /artifact identity/));
+for (const id of ['0', '01', '9007199254740992', '4.2']) {
+  test(`reject noncanonical or unsafe artifact ID ${id}`, () =>
+    assert.throws(() => policy.validateArtifact(artifact(), {...expectedArtifact(), id}), /artifact outputs/));
+}
 for (const [name, change] of [
   ['ID', {id: 99}], ['name', {name: 'github-pages'}], ['expired', {expired: true}],
   ['digest', {digest: 'sha256:' + 'e'.repeat(64)}], ['digest absent', {digest: null}],
@@ -146,7 +152,7 @@ test('deployment API uses the verified artifact ID and approved SHA; failures do
       }
       if (route === 'POST /repos/{owner}/{repo}/pages/deployments') {
         calls.push('POST');
-        assert.equal(params.artifact_id, '42');
+        assert.equal(params.artifact_id, 42);
         assert.equal(params.pages_build_version, A);
         assert.equal(params.oidc_token, 'synthetic-oidc-not-a-credential');
         if (postError) throw Object.assign(new Error('synthetic-oidc-not-a-credential'), {status: 403, request: params});
@@ -212,7 +218,7 @@ function checkWorkflow(workflow) {
   assert.deepEqual(workflow.on.workflow_dispatch.inputs, {approved_sha: {description: pages.on.workflow_dispatch.inputs.approved_sha.description, required: true, type: 'string'}});
   assert.deepEqual(Object.keys(workflow.jobs).sort(), ['deploy', 'prepare']);
   const {prepare, deploy} = workflow.jobs;
-  assert.deepEqual(prepare.permissions, {contents: 'read', actions: 'read'});
+  assert.deepEqual(prepare.permissions, {contents: 'read', actions: 'read', pages: 'read'});
   assert.deepEqual(deploy.permissions, {contents: 'read', actions: 'read', pages: 'write', 'id-token': 'write'});
   assert.equal(deploy.needs, 'prepare'); assert.equal(deploy.environment.name, 'github-pages');
   for (const job of [prepare, deploy]) {
